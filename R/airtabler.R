@@ -446,11 +446,12 @@ air_update <- function(base, table_name, atable_key,record_id, record_data) {
 #'   hotels <- TravelBucketList$Hotels$get()
 #'   destinations <- TravelBucketList$Destinations$get()
 #' }
-airtable <- function(base, tables) {
-  res <- lapply(tables, function(x) air_table_funs(base, x))
+airtable <- function(base, tables, atable_key) {
+  res <- lapply(tables, function(x) air_table_funs(base,atable_key, x))
   names(res) <- tables
   class(res) <- "airtable.base"
   attr(res, "base") <- base
+  attr(res,"atable_key")<- atable_key
   res
 }
 
