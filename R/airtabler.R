@@ -399,7 +399,7 @@ air_delete_vec <- Vectorize(air_delete, vectorize.args = "record_id", SIMPLIFY =
 #' @param record_data Named list of values. You can include all, some, or none
 #'   of the field values
 #' @export
-air_update <- function(base, table_name, record_id, record_data) {
+air_update <- function(base, table_name, atable_key,record_id, record_data) {
   
   if(inherits(record_data, "data.frame")) {
     return(air_update_data_frame(base, table_name,atable_key, record_id, record_data))
