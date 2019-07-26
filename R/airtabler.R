@@ -470,6 +470,7 @@ air_table_funs <- function(base, table_name,atable_key) {
   res_list[["select"]] <-
     function(
       record_id = NULL,
+      atable_key = atable_key,
       fields = NULL,
       filterByFormula = NULL,
       maxRecord = NULL,
@@ -485,6 +486,7 @@ air_table_funs <- function(base, table_name,atable_key) {
     }
   res_list[["select_all"]] <- function(
     record_id = NULL,
+    atable_key = atable_key,
     fields = NULL,
     filterByFormula = NULL,
     maxRecord = NULL,
@@ -511,6 +513,7 @@ air_table_funs <- function(base, table_name,atable_key) {
   res_list[["get"]] <-
     function(
       record_id = NULL,
+      atable_key = atable_key,
       limit = NULL, offset = NULL,
       view = NULL,
       sortField = NULL, sortDirection = NULL,
