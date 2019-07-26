@@ -62,21 +62,21 @@ air_api_key <- function() {
 #' @return A data frame with records or a list with record details if
 #'   \code{record_id} is specified.
 #' @export
-air_get <- function(base, table_name, record_id = NULL,
-                   limit = NULL,
-                   offset = NULL,
-                   view = NULL,
-                   sortField = NULL,
-                   sortDirection = NULL,
-                   combined_result = TRUE) {
-
+air_get <- function(base, table_name,atable_key, record_id = NULL,
+                    limit = NULL,
+                    offset = NULL,
+                    view = NULL,
+                    sortField = NULL,
+                    sortDirection = NULL,
+                    combined_result = TRUE) {
+  
   search_path <- table_name
   if(!missing(record_id)) {
     search_path <- paste0(search_path, "/", record_id)
   }
   request_url <- sprintf("%s/%s/%s?", air_url, base, search_path)
   request_url <- utils::URLencode(request_url)
-
+  
   # append parameters to URL:
   param_list <- as.list(environment())[c(
     "limit", "offset", "view", "sortField", "sortDirection")]
@@ -85,7 +85,7 @@ air_get <- function(base, table_name, record_id = NULL,
   # call service:
   res <- httr::GET(
     url = request_url,
-    config = httr::add_headers(Authorization = paste("Bearer", air_api_key()))
+    config = httr::add_headers(Authorization = paste("Bearer", atable_key))
   )
   air_validate(res)      # throws exception (stop) if error
   ret <- air_parse(res)  # returns R object
@@ -170,7 +170,7 @@ list_params <- function(x, par_name) {
 #'   \code{record_id} is specified.
 #' @export
 air_select <- function(
-  base, table_name, record_id = NULL,
+  base, table_name,atable_key, record_id = NULL,
   fields = NULL,
   filterByFormula = NULL,
   maxRecord = NULL,
@@ -179,14 +179,14 @@ air_select <- function(
   pageSize = NULL,
   offset = NULL,
   combined_result = TRUE) {
-
+  
   search_path <- table_name
   if(!missing(record_id)) {
     search_path <- paste0(search_path, "/", record_id)
   }
   request_url <- sprintf("%s/%s/%s?", air_url, base, search_path)
   request_url <- utils::URLencode(request_url)
-
+  
   # append parameters to URL:
   param_list <- as.list(environment())[c(
     "filterByFormula", "maxRecord", "pageSize", "offset", "view")]
@@ -197,12 +197,12 @@ air_select <- function(
   if(!is.null(fields)) {
     param_list <- c(param_list, list_params(x = fields, par_name = "fields"))
   }
-
+  
   request_url <- httr::modify_url(url = request_url, query = param_list)
   # call service:
   res <- httr::GET(
     url = request_url,
-    config = httr::add_headers(Authorization = paste("Bearer", air_api_key()))
+    config = httr::add_headers(Authorization = paste("Bearer", atable_key))
   )
   air_validate(res)      # throws exception (stop) if error
   ret <- air_parse(res)  # returns R object
@@ -231,7 +231,7 @@ get_offset <- function(x) {
 }
 
 air_validate <- function(res) {
-
+  
   if(!inherits(res, "response")) {
     stop("Not a HTTP response object")
   }
@@ -281,45 +281,48 @@ air_parse <- function(res) {
 #' @param record_data Named list of values. You can include all, some, or none
 #'   of the field values
 #' @export
-air_insert <- function(base, table_name, record_data) {
-
+air_insert <- function(base, table_name,atable_key, record_data) {
+  
   if( inherits(record_data, "data.frame")) {
-    return( air_insert_data_frame(base, table_name, record_data))
+    return( air_insert_data_frame(base, table_name,atable_key, record_data))
   }
-
+  
   record_data <- air_prepare_record(as.list(record_data))
   json_record_data <- jsonlite::toJSON(list(fields = record_data))
-
+  
   request_url <- sprintf("%s/%s/%s", air_url, base, table_name)
-
+  
   # call service:
   res <- httr::POST(
     request_url,
     httr::add_headers(
-      Authorization = paste("Bearer", air_api_key()),
+      Authorization = paste("Bearer", atable_key),
       `Content-type` = "application/json"
     ),
     body = json_record_data
   )
-
+  
   air_validate(res)  # throws exception (stop) if error
   air_parse(res)     # returns R object
 }
 
-air_insert_data_frame <- function(base, table_name, records) {
+air_insert_data_frame <- function(base, table_name,atable_key, records) {
   lapply(seq_len(nrow(records)), function(i) {
     record_data <-
       as.list(records[i,])
-    air_insert(base = base, table_name = table_name, record_data = record_data)
+    air_insert(base = base, table_name = table_name,
+               atable_key = atable_key,
+               record_data = record_data)
   })
 }
 
-air_update_data_frame <- function(base, table_name, record_ids, records) {
+air_update_data_frame <- function(base, table_name, atable_key,record_ids, records) {
   lapply(seq_len(nrow(records)), function(i) {
     record_data <-
       unlist(as.list(records[i,]), recursive = FALSE)
     air_update(base = base,
                table_name = table_name,
+               atable_key = atable_key,
                record_id = ifelse(is.null(record_ids), record_data$id, record_ids[i]),
                record_data = record_data)
   })
@@ -336,7 +339,7 @@ multiple <- function(x) {
 
 air_prepare_record <- function(x) {
   # unbox all 1-sized elements which are not marked with "air_multiple" class:
-
+  
   for(i in seq_along(x)) {
     if(inherits(x[[i]], "air_multiple")) {
       class(x[[i]]) <- class(x[[i]])[-1]
@@ -360,22 +363,22 @@ air_prepare_record <- function(x) {
 #' @param table_name Table name
 #' @param record_id Id of the record to be deleted
 #' @export
-air_delete <- function(base, table_name, record_id) {
-
+air_delete <- function(base, table_name,atable_key, record_id) {
+  
   if(length(record_id) > 1) {
-    return(air_delete_vec(base, table_name, record_id))
+    return(air_delete_vec(base, table_name, atable_key, record_id))
   }
-
+  
   request_url <- sprintf("%s/%s/%s/%s", air_url, base, table_name, record_id)
-
+  
   # call service:
   res <- httr::DELETE(
     request_url,
     httr::add_headers(
-      Authorization = paste("Bearer", air_api_key())
+      Authorization = paste("Bearer", atable_key)
     )
   )
-
+  
   air_validate(res)  # throws exception (stop) if error
   air_parse(res)     # returns R object
 }
@@ -397,25 +400,25 @@ air_delete_vec <- Vectorize(air_delete, vectorize.args = "record_id", SIMPLIFY =
 #'   of the field values
 #' @export
 air_update <- function(base, table_name, record_id, record_data) {
-
+  
   if(inherits(record_data, "data.frame")) {
-    return(air_update_data_frame(base, table_name, record_id, record_data))
+    return(air_update_data_frame(base, table_name,atable_key, record_id, record_data))
   }
   record_data <- air_prepare_record(record_data)
   json_record_data <- jsonlite::toJSON(list(fields = record_data))
-
+  
   request_url <- sprintf("%s/%s/%s/%s", air_url, base, table_name, record_id)
-
+  
   # call service:
   res <- httr::PATCH(
     request_url,
     httr::add_headers(
-      Authorization = paste("Bearer", air_api_key()),
+      Authorization = paste("Bearer", atable_key),
       `Content-type` = "application/json"
     ),
     body = json_record_data
   )
-
+  
   air_validate(res)  # throws exception (stop) if error
   air_parse(res)     # returns R object
 }
@@ -460,8 +463,8 @@ print.airtable.base <- function(x, ...) {
 
 
 
-air_table_funs <- function(base, table_name) {
-
+air_table_funs <- function(base, table_name,atable_key) {
+  
   res_list <- list()
   res_list[["select"]] <-
     function(
@@ -475,7 +478,7 @@ air_table_funs <- function(base, table_name) {
       offset = NULL,
       combined_result = TRUE
     ){
-      air_select(base, table_name, record_id,
+      air_select(base, table_name,atable_key, record_id,
                  fields, filterByFormula, maxRecord, sort, view,
                  pageSize, offset, combined_result)
     }
@@ -492,7 +495,7 @@ air_table_funs <- function(base, table_name) {
     ret_offset = NULL
     while({
       ret <- air_select(
-        base, table_name, record_id,
+        base, table_name,atable_key, record_id,
         fields, filterByFormula, maxRecord, sort, view,
         pageSize, ret_offset, combined_result = TRUE)
       ret_offset <- get_offset(ret)
@@ -500,10 +503,10 @@ air_table_funs <- function(base, table_name) {
       !is.null(ret_offset)
     }) {}
     if(length(ret_all) == 0) { return(list())}
-
+    
     .bind_df(ret_all)
   }
-
+  
   res_list[["get"]] <-
     function(
       record_id = NULL,
@@ -512,32 +515,32 @@ air_table_funs <- function(base, table_name) {
       sortField = NULL, sortDirection = NULL,
       combined_result = TRUE
     ){
-      air_get(base, table_name, record_id, limit, offset, view, sortField, sortDirection, combined_result)
+      air_get(base, table_name,atable_key, record_id, limit, offset, view, sortField, sortDirection, combined_result)
     }
   res_list[["insert"]] <-
     function(record_data) {
-      air_insert(base, table_name, record_data)
+      air_insert(base, table_name,atable_key, record_data)
     }
   res_list[["update"]] <-
     function(record_id, record_data) {
-      air_update(base, table_name, record_id, record_data)
+      air_update(base, table_name,atable_key, record_id, record_data)
     }
   res_list[["delete"]] <-
     function(record_id) {
-      air_delete(base, table_name, record_id)
+      air_delete(base, table_name,atable_key, record_id)
     }
-
+  
   res_list
 }
 
 .bind_df <- function(x) {
   # x = list of data frames
   if(length(unique(lengths(x))) != 1) {
-
+    
     # add missing columns
     col_names <- unique(unlist(lapply(x, names)))
     col_missing <- lapply(x, function(x) setdiff(col_names, names(x)))
-
+    
     x <- lapply(seq_along(x), function(i) {
       ret <- x[[i]]
       for(col in col_missing[[i]]) {
@@ -546,8 +549,8 @@ air_table_funs <- function(base, table_name) {
       ret
     })
   }
-
+  
   do.call(rbind, x)
-
+  
 }
 
